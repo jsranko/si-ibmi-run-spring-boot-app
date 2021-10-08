@@ -22,8 +22,7 @@ Color_Off='\033[0m'       # Text Reset
 # -------------------------------------------------------------------------------
 create_db2_command()
 {	
-
-	if [ -f "~/db2" ]; then
+	if [ ! -f "~/db2" ]; then						
 		cp /QOpenSys/usr/bin/ipcs ~/db2 && chmod +x ~/db2			
 	fi	
   
@@ -37,7 +36,8 @@ create_db2_command()
 #       exit 1 (succeeds) command exist, else 0.
 # -------------------------------------------------------------------------------
 check_if_port_is_used()
-{	
+{
+	JOB_USED_PORT="X"	
 
 	create_db2_command	
 
@@ -49,12 +49,16 @@ check_if_port_is_used()
 		return 0
 	fi
 
-    # get job that use the port   
-    JOB_USED_PORT=$(db2 "select distinct job_name from QSYS2.NETSTAT_JOB_INFO where local_port='$USED_PORT'" |\
-                  awk '{printf "%s ",$0} END {print ""}' |\
-                  awk '{print $3}')                  
+    # get job that use the port      	
+    #JOB_USED_PORT=$(db2 "select distinct job_name from QSYS2.NETSTAT_JOB_INFO where local_port='$USED_PORT'" |\
+    #              awk '{printf "%s ",$0} END {print ""}' |\
+    #              awk '{print $3}')                         
+                  
+    JOB_USED_PORT=$(qsh -c "db2 \"select distinct job_name from QSYS2.NETSTAT_JOB_INFO where local_port='$USED_PORT'\"" |\
+                    awk '{printf "%s ",$0} END {print ""}' |\
+                    awk '{print $3}')
 
-	if [ "$JOB_USED_PORT" = "0" ]; then 
+	if [ "$JOB_USED_PORT" = "0" ] || [ "$JOB_USED_PORT" = "" ]; then 
 		echo -e "${Blue}Port ${USED_PORT} is not used${Color_Off}"		
 		return 0
 	fi
@@ -109,8 +113,8 @@ backup_logfile()
 kill_unwanted_process()
 {	
 
-	# Kill start process	
-    ps -ef | grep 'java' | grep '${1}' | awk '{print $2}' | xargs kill
+	# Kill start process
+    ps -ef | grep 'java' | grep "${1}" | awk '{print $2}' | xargs kill
   
 }
 
@@ -176,8 +180,8 @@ java -Dspring.config.additional-location=$CONFIG_FILE\
 
 sleep 1
 
-#kill_unwanted_process ${PROJECT_DIR}
+kill_unwanted_process ${PROJECT_DIR}
 
-echo -e "${Red}CONFIG_DIR=${CONFIG_DIR}"
+echo -e "${Red}CONFIG_FILE=${CONFIG_FILE}"
 echo -e "PROJECT_DIR=${PROJECT_DIR}"
 echo -e "TERMINATE_JOB=${TERMINATE_JOB}${Color_Off}"
